@@ -7,50 +7,63 @@ on:
 
 jobs:
   wheels:
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-24.04
+
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Install Eigen3
+
+      - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libeigen3-dev
-      - uses: pypa/cibuildwheel@v2.23.3
-        env:
-          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-*"
-          CIBW_SKIP: "*-musllinux_* *i686"
-          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
-          CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28
+          sudo apt update
+          sudo apt install -y libeigen3-dev
 
-          # Install native build dependencies inside the manylinux container
-          CIBW_BEFORE_ALL_LINUX: >
-            dnf install -y eigen3-devel
+      - name: Install libserialport
+        run: |
+          sudo apt update
+          sudo apt install -y libserialport-dev
 
-          MACOSX_DEPLOYMENT_TARGET: "11.0"
+      - name: Add robotpkg repository
+        run: |
+          sudo apt install -qqy lsb-release curl
+          sudo mkdir -p /etc/apt/keyrings
+          curl http://robotpkg.openrobots.org/packages/debian/robotpkg.asc \
+            | sudo tee /etc/apt/keyrings/robotpkg.asc
+          echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/robotpkg.asc] http://robotpkg.openrobots.org/packages/debian/pub $(lsb_release -cs) robotpkg" \
+            | sudo tee /etc/apt/sources.list.d/robotpkg.list
+          sudo apt update
+      
+      - name: Install Pinocchio
+        run: |
+          sudo apt-get install -y 'robotpkg-py3*-pinocchio'
 
-          CIBW_BEFORE_ALL: >
-            curl -sL https://sigrok.org/download/source/libserialport/libserialport-0.1.2.tar.gz | tar xz -C /tmp &&
-            cd /tmp/libserialport-0.1.2 &&
-            ./configure --prefix=/tmp/sp --disable-shared --with-pic &&
-            make install
+      - name: Configure robotpkg environment
+        run: |
+          export PATH=/opt/openrobots/bin:$PATH
+          export PKG_CONFIG_PATH=/opt/openrobots/lib/pkgconfig:$PKG_CONFIG_PATH
+          export LD_LIBRARY_PATH=/opt/openrobots/lib:$LD_LIBRARY_PATH
+          export PYTHONPATH=/opt/openrobots/lib/python3.10/site-packages:$PYTHONPATH # Adapt your desired python version here
+          export CMAKE_PREFIX_PATH=/opt/openrobots:$CMAKE_PREFIX_PATH
 
-          CIBW_ENVIRONMENT: PKG_CONFIG_PATH=/tmp/sp/lib/pkgconfig
-          CIBW_BEFORE_BUILD: pip install scikit-build-core pybind11 cmake ninja pin==4.1.0
-          CIBW_BUILD_FRONTEND: "pip; args: --no-build-isolation"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
 
-          CIBW_REPAIR_WHEEL_COMMAND_LINUX: >
-            auditwheel repair -w {dest_dir} {wheel}
-            --exclude libpinocchio_default.so --exclude libpinocchio_parsers.so
-            --exclude libcoal.so --exclude liboctomap.so.1.10 --exclude liboctomath.so.1.10
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install scikit-build-core pybind11 cmake ninja
 
-          CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
-            delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}
-            --exclude cmeel.prefix
+      - name: Build wheel
+        run: |
+          python -m pip wheel . \
+            --no-build-isolation \
+            --no-deps \
+            --wheel-dir wheelhouse
+
       - uses: actions/upload-artifact@v4
         with:
-          name: wheels-${{ matrix.os }}
+          name: wheels-ubuntu-24.04
           path: wheelhouse/*.whl
