@@ -38,7 +38,8 @@ jobs:
             pybind11 \
             cmake \
             ninja \
-            pin==4.1.0
+            pin==4.1.0 \
+            cmeel-urdfdom-headers
 
       - name: Configure Pinocchio environment
         shell: bash
