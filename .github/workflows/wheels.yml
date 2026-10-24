@@ -7,7 +7,11 @@ on:
 
 jobs:
   wheels:
-    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14]
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
@@ -19,7 +23,8 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Install system dependencies
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -29,6 +34,19 @@ jobs:
             pkg-config \
             libeigen3-dev \
             libserialport-dev
+
+      - name: Install system dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install eigen@3 libserialport pkgconf
+
+          # link libserialport statically so the wheel does not need Homebrew
+          SP_LIB="$(brew --prefix libserialport)/lib"
+          test -f "$SP_LIB/libserialport.a"
+          rm -f "$SP_LIB"/libserialport*.dylib "$(brew --prefix)"/lib/libserialport*.dylib
+
+          echo "CMAKE_PREFIX_PATH=$(brew --prefix eigen@3)" >> "$GITHUB_ENV"
+          echo "MACOSX_DEPLOYMENT_TARGET=14.0" >> "$GITHUB_ENV"
 
       - name: Install build dependencies
         run: |
@@ -47,7 +65,7 @@ jobs:
           PREFIX=$(python -m cmeel cmake)
 
           echo "CMEEL_PREFIX=$PREFIX" >> "$GITHUB_ENV"
-          echo "CMAKE_PREFIX_PATH=$PREFIX" >> "$GITHUB_ENV"
+          echo "CMAKE_PREFIX_PATH=$PREFIX${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}" >> "$GITHUB_ENV"
           echo "LD_LIBRARY_PATH=$PREFIX/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
           echo "$PREFIX/bin" >> "$GITHUB_PATH"
 
@@ -68,7 +86,83 @@ jobs:
             --no-deps \
             --wheel-dir wheelhouse
 
+      - name: Test wheel
+        working-directory: wheelhouse
+        run: |
+          python -m pip install --no-deps ./*.whl
+          python -c "import ulixpy"
+
       - uses: actions/upload-artifact@v4
         with:
-          name: wheels-ubuntu-24.04
+          name: wheels-${{ matrix.os }}
+          path: wheelhouse/*.whl
+
+  # pinocchio is only available on Windows through conda-forge, so the wheel
+  # must be used inside a conda env with `conda install -c conda-forge pinocchio libserialport`
+  wheels-windows:
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up conda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: build
+          python-version: "3.12"
+          conda-remove-defaults: "true"
+
+      - name: Install dependencies
+        run: |
+          conda install -y -c conda-forge \
+            pinocchio=4.1.0 \
+            libserialport \
+            pkg-config \
+            cmake \
+            pybind11 \
+            scikit-build-core
+
+      - name: Configure environment
+        run: |
+          LIBRARY="$(cygpath -u "$CONDA_PREFIX")/Library"
+
+          # conda-forge libserialport ships no pkg-config file
+          mkdir -p "$LIBRARY/lib/pkgconfig"
+          cat > "$LIBRARY/lib/pkgconfig/libserialport.pc" <<'EOF'
+          prefix=${pcfiledir}/../..
+          libdir=${prefix}/lib
+          includedir=${prefix}/include
+
+          Name: libserialport
+          Description: Cross-platform serial port access library
+          Version: 0.1.2
+          Libs: -L${libdir} -llibserialport
+          Cflags: -I${includedir}
+          EOF
+
+          echo "PKG_CONFIG_PATH=$(cygpath -m "$LIBRARY/lib/pkgconfig")" >> "$GITHUB_ENV"
+          echo "CMAKE_PREFIX_PATH=$(cygpath -m "$LIBRARY")" >> "$GITHUB_ENV"
+
+      - name: Build wheel
+        run: |
+          python -m pip wheel . \
+            --no-build-isolation \
+            --no-deps \
+            --wheel-dir wheelhouse
+
+      - name: Test wheel
+        working-directory: wheelhouse
+        run: |
+          python -m pip install --no-deps ./*.whl
+          python -c "import ulixpy"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-windows-2022
           path: wheelhouse/*.whl
