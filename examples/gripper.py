@@ -1,6 +1,6 @@
 import numpy as np
 
-from ulixarm import UlixArm
+from ulixpy import UlixArm
 import time
 
 def main():
