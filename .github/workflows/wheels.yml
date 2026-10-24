@@ -1,0 +1,25 @@
+name: Wheels
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  wheels:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, windows-latest, macos-13, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - run: git config --global url."https://github.com/".insteadOf git@github.com:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: pypa/cibuildwheel@v2.23.3
+        env:
+          CIBW_SKIP: "pp* *-musllinux_*"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: wheelhouse/*.whl

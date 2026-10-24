@@ -1,4 +1,4 @@
 [submodule "ulixarm_cpp"]
     path = cpp/ulixarm_cpp
-    url = git@github.com:itacarobotics/ulixarm_cpp.git
+    url = ../ulixarm_cpp.git
     branch = main
