@@ -15,29 +15,38 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+      - name: Install Eigen3
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libeigen3-dev
       - uses: pypa/cibuildwheel@v2.23.3
         env:
-          # pin has wheels for these Pythons/platforms only
           CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-*"
           CIBW_SKIP: "*-musllinux_* *i686"
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28
+
+          # Install native build dependencies inside the manylinux container
+          CIBW_BEFORE_ALL_LINUX: >
+            dnf install -y eigen3-devel
+
           MACOSX_DEPLOYMENT_TARGET: "11.0"
-          # static libserialport
+
           CIBW_BEFORE_ALL: >
             curl -sL https://sigrok.org/download/source/libserialport/libserialport-0.1.2.tar.gz | tar xz -C /tmp &&
             cd /tmp/libserialport-0.1.2 &&
             ./configure --prefix=/tmp/sp --disable-shared --with-pic &&
             make install
+
           CIBW_ENVIRONMENT: PKG_CONFIG_PATH=/tmp/sp/lib/pkgconfig
-          # build against pin installed in the target Python
           CIBW_BEFORE_BUILD: pip install scikit-build-core pybind11 cmake ninja pin==4.1.0
           CIBW_BUILD_FRONTEND: "pip; args: --no-build-isolation"
-          # pin's libraries come from the pin wheel at runtime
+
           CIBW_REPAIR_WHEEL_COMMAND_LINUX: >
             auditwheel repair -w {dest_dir} {wheel}
             --exclude libpinocchio_default.so --exclude libpinocchio_parsers.so
             --exclude libcoal.so --exclude liboctomap.so.1.10 --exclude liboctomath.so.1.10
+
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
             delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}
             --exclude cmeel.prefix
