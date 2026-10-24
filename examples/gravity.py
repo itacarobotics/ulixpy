@@ -5,7 +5,7 @@ import tty
 
 import numpy as np
 
-from ulixarm import UlixArm
+from ulixpy import UlixArm
 
 
 def main():
