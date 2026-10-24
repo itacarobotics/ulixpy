@@ -30,6 +30,9 @@ jobs:
             ./configure --prefix=/tmp/sp --disable-shared --with-pic &&
             make install
           CIBW_ENVIRONMENT: PKG_CONFIG_PATH=/tmp/sp/lib/pkgconfig
+          # build against pin installed in the target Python
+          CIBW_BEFORE_BUILD: pip install scikit-build-core pybind11 cmake ninja pin==4.1.0
+          CIBW_BUILD_FRONTEND: "pip; args: --no-build-isolation"
           # pin's libraries come from the pin wheel at runtime
           CIBW_REPAIR_WHEEL_COMMAND_LINUX: >
             auditwheel repair -w {dest_dir} {wheel}
