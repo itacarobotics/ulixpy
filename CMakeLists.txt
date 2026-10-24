@@ -9,14 +9,12 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 find_package(Python COMPONENTS Interpreter Development.Module REQUIRED)
 find_package(pybind11 CONFIG REQUIRED)
 
-# Eigen and Pinocchio come from the pin wheel
-execute_process(
-    COMMAND "${Python_EXECUTABLE}" -c "import os, sys; print(';'.join(p + '/cmeel.prefix' for p in sys.path if os.path.isdir(p + '/cmeel.prefix')))"
-    OUTPUT_VARIABLE CMEEL_PREFIX
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-message(STATUS "cmeel prefix: ${CMEEL_PREFIX}")
-list(APPEND CMAKE_PREFIX_PATH ${CMEEL_PREFIX})
+# Locate dependencies installed through cmeel.
+if(DEFINED ENV{CMEEL_PREFIX})
+    list(PREPEND CMAKE_PREFIX_PATH "$ENV{CMEEL_PREFIX}")
+endif()
+
+message(STATUS "CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
 
 add_subdirectory(cpp/ulixarm_cpp EXCLUDE_FROM_ALL)
 
