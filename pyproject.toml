@@ -6,4 +6,4 @@ build-backend = "scikit_build_core.build"
 name = "ulixpy"
 version = "0.1.4"
 requires-python = ">=3.10"
-dependencies = ["numpy", "pin==4.1.0", "cmeel-urdfdom-headers"]
+dependencies = ["numpy", "pin==4.1.0"]
