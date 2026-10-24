@@ -9,7 +9,7 @@ jobs:
   wheels:
     strategy:
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm, windows-latest, macos-13, macos-latest]
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-15-intel, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -17,7 +17,27 @@ jobs:
           submodules: recursive
       - uses: pypa/cibuildwheel@v2.23.3
         env:
-          CIBW_SKIP: "pp* *-musllinux_*"
+          # pin has wheels for these Pythons/platforms only
+          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-*"
+          CIBW_SKIP: "*-musllinux_* *i686"
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
+          CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
+          # static libserialport
+          CIBW_BEFORE_ALL: >
+            curl -sL https://sigrok.org/download/source/libserialport/libserialport-0.1.2.tar.gz | tar xz -C /tmp &&
+            cd /tmp/libserialport-0.1.2 &&
+            ./configure --prefix=/tmp/sp --disable-shared --with-pic &&
+            make install
+          CIBW_ENVIRONMENT: PKG_CONFIG_PATH=/tmp/sp/lib/pkgconfig
+          # pin's libraries come from the pin wheel at runtime
+          CIBW_REPAIR_WHEEL_COMMAND_LINUX: >
+            auditwheel repair -w {dest_dir} {wheel}
+            --exclude libpinocchio_default.so --exclude libpinocchio_parsers.so
+            --exclude libcoal.so --exclude liboctomap.so.1.10 --exclude liboctomath.so.1.10
+          CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
+            delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}
+            --exclude cmeel.prefix
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-${{ matrix.os }}

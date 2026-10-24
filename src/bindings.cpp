@@ -5,12 +5,17 @@
 
 namespace py = pybind11;
 
-PYBIND11_MODULE(ulixpy, m)
+PYBIND11_MODULE(_core, m)
 {
      py::class_<UlixArm>(m, "UlixArm")
 
      // Constructor
-     .def(py::init<bool>(),
+     .def(py::init([](bool gripper) {
+               // robot.urdf is installed next to this module
+               py::object urdf = py::module_::import("importlib.resources")
+                    .attr("files")("ulixpy").attr("joinpath")("robot.urdf");
+               return new UlixArm(gripper, py::str(urdf));
+          }),
           py::arg("gripper") = true,
           "Creates the arm object and sets up everything it needs to run.\n\n"
           "Loads the kinematic/dynamic model used for gravity compensation "
