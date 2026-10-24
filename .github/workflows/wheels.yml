@@ -38,13 +38,12 @@ jobs:
             pybind11 \
             cmake \
             ninja \
-            pin
+            pin==4.1.0
 
       - name: Configure Pinocchio environment
         shell: bash
         run: |
-          PREFIX=$(python -c \
-            "import cmeel; print(cmeel.prefix)")
+          PREFIX=$(python -m cmeel cmake)
 
           echo "CMEEL_PREFIX=$PREFIX" >> "$GITHUB_ENV"
           echo "CMAKE_PREFIX_PATH=$PREFIX" >> "$GITHUB_ENV"
