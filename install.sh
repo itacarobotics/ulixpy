@@ -19,7 +19,6 @@ MINIFORGE_DIR="${HOME}/miniforge3"
 MINIFORGE_URL="https://github.com/conda-forge/miniforge/releases/latest/download"
 
 CONDA=""
-CONDA_INSTALLED=0
 LOG=""
 WORK_DIR=""
 SUDO_KEEPALIVE_PID=""
@@ -190,6 +189,27 @@ verify_install() {
     "${CONDA}" run --no-capture-output -n "${ENV_NAME}" python -c "import ulixpy; ulixpy.UlixArm()"
 }
 
+# A script cannot change the shell that started it, so this replaces the
+# installer with an interactive bash that has loaded ~/.bashrc and activated
+# the environment. Without a terminal it returns and the printed guide stands.
+enter_env_shell() {
+    [ -t 1 ] && [ "$(basename "${SHELL:-bash}")" = "bash" ] || return 0
+    { : </dev/tty; } 2>/dev/null || return 0
+
+    # exec skips the EXIT trap, so cleanup has to happen here.
+    trap - EXIT INT TERM
+    if [ -n "${SUDO_KEEPALIVE_PID}" ]; then kill "${SUDO_KEEPALIVE_PID}" 2>/dev/null || true; fi
+    rm -rf "${WORK_DIR}"
+    rm -f "${LOG}"
+
+    printf '  %sActivating %s in this terminal (type "exit" to leave).%s\n\n' \
+        "${DIM}" "${ENV_NAME}" "${RESET}"
+    exec bash --rcfile <(printf '%s\n' \
+        '[ -f ~/.bashrc ] && source ~/.bashrc' \
+        "eval \"\$($(printf '%q' "${CONDA}") shell.bash hook)\"" \
+        "conda activate ${ENV_NAME}") -i </dev/tty
+}
+
 # ------------------------------------------------------------------ main ----
 
 main() {
@@ -215,7 +235,6 @@ main() {
     if [ -z "${CONDA}" ]; then
         step "Installing Miniforge" install_miniforge
         CONDA="${MINIFORGE_DIR}/bin/conda"
-        CONDA_INSTALLED=1
     fi
 
     step "Setting up conda environment '${ENV_NAME}'" create_env
@@ -224,13 +243,12 @@ main() {
     step "Checking the installation" verify_install
 
     printf '\n%sulixpy is installed.%s\n\n' "${GREEN}${BOLD}" "${RESET}"
-    if [ "${CONDA_INSTALLED}" -eq 1 ]; then
-        printf '  Open a new terminal, then run:\n\n'
-    else
-        printf '  Get started with:\n\n'
-    fi
+    printf '  To use ulixpy in a new terminal, run:\n\n'
     printf '    %sconda activate %s%s\n\n' "${BOLD}" "${ENV_NAME}" "${RESET}"
+    printf '  To leave the environment: %sconda deactivate%s\n\n' "${BOLD}" "${RESET}"
     printf '  %sSource: %s%s\n\n' "${DIM}" "${REPO_DIR}" "${RESET}"
+
+    enter_env_shell
 }
 
 main "$@"
