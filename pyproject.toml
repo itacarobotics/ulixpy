@@ -4,6 +4,6 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "ulixpy"
-version = "0.1.4"
+version = "0.1.5"
 requires-python = ">=3.10"
 dependencies = ["numpy", "pin==4.1.0"]
