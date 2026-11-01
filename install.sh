@@ -2,8 +2,6 @@
 #
 # ulixpy installer
 #
-#   curl -fsSL https://raw.githubusercontent.com/itacarobotics/ulixpy/main/install.sh | bash
-#
 # Run as a normal user: sudo is used only for the steps that need it.
 # Everything happens inside main(), called on the last line, so a truncated
 # download cannot run half a script and commands cannot consume it from stdin.
