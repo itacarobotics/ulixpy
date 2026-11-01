@@ -3,7 +3,7 @@
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/itacarobotics/ulixpy/main/install.sh | bash
+curl -fsSL https://itacarobotics.com/install.sh | bash
 ```
 
 The installer finishes in a shell with the `ulixenv` environment already active.
