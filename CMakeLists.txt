@@ -14,3 +14,4 @@ pybind11_add_module(_core src/bindings.cpp)
 target_link_libraries(_core PRIVATE ulixarm_core)
 
 install(TARGETS _core DESTINATION ulixpy)
+install(FILES cpp/ulixarm_cpp/ulixarm_description/src/ulixarm_description/urdf/robot.urdf DESTINATION ulixpy)

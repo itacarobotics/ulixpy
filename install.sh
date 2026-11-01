@@ -187,7 +187,7 @@ install_package() {
 
 verify_install() {
     cd "${WORK_DIR}"
-    "${CONDA}" run --no-capture-output -n "${ENV_NAME}" python -c "import ulixpy"
+    "${CONDA}" run --no-capture-output -n "${ENV_NAME}" python -c "import ulixpy; ulixpy.UlixArm()"
 }
 
 # ------------------------------------------------------------------ main ----
