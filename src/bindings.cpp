@@ -5,34 +5,52 @@
 
 namespace py = pybind11;
 
+using ulixarm::UlixArm;
+
 PYBIND11_MODULE(_core, m)
 {
+     m.attr("NUM_JOINTS") = ulixarm::kNumJoints;
+
      py::class_<UlixArm>(m, "UlixArm")
 
      // Constructor
-     .def(py::init([](bool gripper) {
-               // robot.urdf is installed next to this module
-               py::object urdf = py::module_::import("importlib.resources")
-                    .attr("files")("ulixpy").attr("joinpath")("robot.urdf");
-               return new UlixArm(gripper, py::str(urdf));
+     .def(py::init([](bool gripper, const std::string& urdf_path) {
+               std::string path = urdf_path;
+               if (path.empty()) {
+                    // robot.urdf is installed next to this module
+                    py::object urdf = py::module_::import("importlib.resources")
+                         .attr("files")("ulixpy").attr("joinpath")("robot.urdf");
+                    path = py::str(urdf);
+               }
+               return new UlixArm(gripper, path);
           }),
           py::arg("gripper") = true,
+          py::arg("urdf_path") = "",
           "Creates the arm object and sets up everything it needs to run.\n\n"
           "Loads the kinematic/dynamic model used for gravity compensation "
           "and prepares the motor lists for the manipulator joints and, "
           "if present, the gripper. It does not communicate with the "
           "hardware yet; call connect() for that.\n\n"
           "Args:\n"
-          "    gripper: True if a gripper is mounted on the arm, False otherwise.")
+          "    gripper: True if a gripper is mounted on the arm, False otherwise.\n"
+          "    urdf_path: Path to the robot URDF. Leave empty to use the "
+          "robot.urdf shipped with ulixpy.")
 
      // Connection and motor control
      .def("connect", &UlixArm::connect,
           py::arg("port"),
           "Opens the serial connection to the arm.\n\n"
-          "Connects to the motor controller on the given port. This must "
-          "happen before enabling the motors or sending commands.\n\n"
+          "Connects to the motor controller on the given port and checks "
+          "that every motor runs in MIT mode with the expected PMAX/VMAX/TMAX "
+          "mapping. This must happen before enabling the motors or sending "
+          "commands.\n\n"
           "Args:\n"
           "    port: Path of the serial device, e.g. '/dev/ttyACM0'.")
+
+     .def("disconnect", &UlixArm::disconnect,
+          "Closes the serial connection to the arm.\n\n"
+          "Does not disable the motors: they keep executing the last "
+          "command. Safe to call when not connected.")
 
      .def("enable", &UlixArm::enable,
           "Powers up the motors so the arm can move.\n\n"
@@ -52,7 +70,7 @@ PYBIND11_MODULE(_core, m)
           "Updates the arm's state from the motors.\n\n"
           "Requests the latest motor data and stores it, so get_q(), "
           "get_dq(), get_tau(), and the temperature getters return "
-          "current values.\n\n"
+          "current values. Works while connected, enabled or disabled.\n\n"
           "Note:\n"
           "    Use this function at initialization only. The control() "
           "function already updates the latest motor feedback.")
@@ -71,11 +89,15 @@ PYBIND11_MODULE(_core, m)
           "velocity (kd), and a feedforward torque is added. If gravity "
           "compensation is enabled, the torque required to hold the arm "
           "against gravity is added as well.\n\n"
-          "The target positions are checked against joint limits and "
-          "self-collision constraints before commands are sent.\n\n"
+          "Before anything is sent, the targets and gains are checked "
+          "against the joint limits, joints with kp > 0 must be close to "
+          "their current position, and no motor may be overheating. "
+          "Violations raise an exception.\n\n"
           "Note:\n"
-          "    This method does not control the gripper. Use open() "
-          "and close() instead.\n\n"
+          "    This method does not control the gripper. Use open_width(), "
+          "open_ratio() and close() instead.\n\n"
+          "Warning:\n"
+          "    Self-collision is NOT checked.\n\n"
           "Args:\n"
           "    q_target: Desired joint positions, in radians.\n"
           "    dq_target: Desired joint velocities, in rad/s.\n"
@@ -129,24 +151,24 @@ PYBIND11_MODULE(_core, m)
           "    Rotor temperatures in degrees Celsius.")
 
      // Gripper control: open
-     .def("open",
-          py::overload_cast<>(&UlixArm::open),
-          "Opens the gripper all the way.")
+     .def("open", &UlixArm::open,
+          "Opens the gripper to the default opening (80 %).")
 
-     .def("open",
-          py::overload_cast<double, std::string>(&UlixArm::open),
-          py::arg("d"),
-          py::arg("type"),
-          "Opens the gripper to a specified width or normalized position.\n\n"
+     .def("open_width", &UlixArm::open_width,
+          py::arg("meters"),
+          "Opens the gripper to a given width.\n\n"
           "Args:\n"
-          "    d: Desired opening. Interpretation depends on type:\n"
-          "        - If type is 'metric', the opening is specified in meters,\n"
-          "          from 0.0 (closed) to 0.090 (fully open).\n"
-          "        - If type is 'normal', the opening is normalized from 0.0\n"
-          "          (closed) to 1.0 (fully open).\n\n"
-          "Values outside the valid range are limited to the gripper's "
-          "physical range.")
-          
+          "    meters: Opening between the fingers, from 0.0 (closed) to "
+          "0.090 (fully open). Raises an exception if outside the "
+          "gripper's range.")
+
+     .def("open_ratio", &UlixArm::open_ratio,
+          py::arg("ratio"),
+          "Opens the gripper to a fraction of its full opening.\n\n"
+          "Args:\n"
+          "    ratio: Normalized opening, from 0.0 (closed) to 1.0 (fully "
+          "open). Raises an exception if outside the gripper's range.")
+
      // Gripper control: close
      .def("close",
           py::overload_cast<>(&UlixArm::close),

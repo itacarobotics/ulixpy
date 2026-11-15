@@ -23,7 +23,7 @@ def main():
     time.sleep(1)
 
     # opens 80% of max opening
-    robot.open(0.8, "normal")
+    robot.open_ratio(0.8)
     time.sleep(1)
 
     # closes at 60% of max closure force
@@ -31,7 +31,7 @@ def main():
     time.sleep(1)
 
     # opens at 5 cm
-    robot.open(0.05, "metric")
+    robot.open_width(0.05)
     time.sleep(1)
 
 
