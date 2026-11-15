@@ -1,7 +1,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/eigen.h>
 
-#include "ulixarm.hpp"
+#include "ulixarm_cpp/ulixarm.hpp"
 
 namespace py = pybind11;
 
