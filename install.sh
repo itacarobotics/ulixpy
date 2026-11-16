@@ -105,8 +105,10 @@ preflight() {
         || die "This installer needs an apt-based distribution (Ubuntu)."
     command -v curl >/dev/null 2>&1 \
         || die "curl is required." "Install it with: sudo apt install curl"
-    [ "$(dpkg --print-architecture)" = "amd64" ] \
-        || die "Pinocchio's apt packages are only published for amd64."
+    case "$(uname -m)" in
+        x86_64|aarch64) ;;
+        *) die "Pinocchio's pip wheels are only published for x86_64 and aarch64." ;;
+    esac
 }
 
 # Asks for the password once, then keeps sudo alive through the long build.
@@ -123,18 +125,9 @@ acquire_sudo() {
 
 # ----------------------------------------------------------------- steps ----
 
-install_pinocchio() {
-    sudo apt-get install -y lsb-release curl
-    sudo mkdir -p /etc/apt/keyrings
-    curl -fsSL http://robotpkg.openrobots.org/packages/debian/robotpkg.asc \
-        | sudo tee /etc/apt/keyrings/robotpkg.asc >/dev/null
-    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/robotpkg.asc] http://robotpkg.openrobots.org/packages/debian/pub $(lsb_release -cs) robotpkg" \
-        | sudo tee /etc/apt/sources.list.d/robotpkg.list >/dev/null
-    sudo apt-get update
-    sudo apt-get install -y 'robotpkg-py3*-pinocchio'
-}
-
+# Pinocchio itself comes from the `pin` pip wheel when ulixpy is built.
 install_system_packages() {
+    sudo apt-get update
     sudo apt-get install -y build-essential cmake git pkg-config \
         libeigen3-dev libserialport-dev
 }
@@ -151,19 +144,10 @@ create_env() {
         "${CONDA}" create -y -n "${ENV_NAME}" "python=${PYTHON_VERSION}"
     fi
 
-    # Scoped to the environment so the rest of the system is left alone.
-    # PYTHONPATH is left out on purpose: robotpkg's Python bindings target the
-    # system Python, while ulixpy gets its bindings from the pin wheel.
-    local prefix
-    prefix="$(dpkg -L robotpkg-pinocchio \
-        | sed -n -E 's#/lib/cmake/pinocchio/pinocchio(Config|-config)\.cmake$##p' \
-        | head -n 1)"
-    [ -n "${prefix}" ] || { echo "Could not locate Pinocchio's CMake config."; return 1; }
-
-    "${CONDA}" env config vars set -n "${ENV_NAME}" \
-        "CMAKE_PREFIX_PATH=${prefix}" \
-        "PKG_CONFIG_PATH=${prefix}/lib/pkgconfig" \
-        "LD_LIBRARY_PATH=${prefix}/lib"
+    # Earlier versions of this installer pointed these at robotpkg's Pinocchio.
+    # Clear them so the build and runtime use the Pinocchio from the pin wheel.
+    "${CONDA}" env config vars unset -n "${ENV_NAME}" \
+        CMAKE_PREFIX_PATH PKG_CONFIG_PATH LD_LIBRARY_PATH || true
 }
 
 fetch_repo() {
@@ -226,7 +210,6 @@ main() {
     WORK_DIR="$(mktemp -d)"
     acquire_sudo
 
-    step "Installing Pinocchio" install_pinocchio
     step "Installing Eigen, libserialport and build tools" install_system_packages
 
     CONDA="$(find_conda)"
