@@ -39,16 +39,19 @@ def main():
 
             key = sys.stdin.read(1) if select.select([sys.stdin], [], [], 0)[0] else ""
             if key == "o":
-                robot.open()
+                robot.open_ratio(0.5)
             elif key == "c":
-                robot.close(0.4)
+                robot.close(1.0)
             elif key == "q":
                 running = False
-
-        robot.hold()
+    except KeyboardInterrupt:
+        print("\nInterrupted, holding position.")
     finally:
         # Restore terminal settings
         termios.tcsetattr(fd, termios.TCSANOW, old_attr)
+        # Keep the arm in place, then close the connection
+        robot.hold()
+        robot.disconnect()
 
     return 0
 
