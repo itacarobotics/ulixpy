@@ -102,3 +102,58 @@ Check the installation (run it outside the source directory):
 ```bash
 python -c "import ulixpy; ulixpy.UlixArm()"
 ```
+
+## Working with a local clone
+
+The C++ code lives in submodules: `cpp/ulixarm_cpp`, which itself contains the
+`ulixarm_description` submodule with the URDF files. Both must be checked out
+to build.
+
+### Cloning
+
+```bash
+git clone --recurse-submodules https://github.com/itacarobotics/ulixpy.git
+```
+
+If you already cloned without submodules:
+
+```bash
+cd ulixpy
+git submodule update --init --recursive
+```
+
+The submodule URLs are relative, so they are fetched with the same protocol
+(HTTPS or SSH) you used to clone `ulixpy`.
+
+### Updating
+
+```bash
+git pull --recurse-submodules
+git submodule update --init --recursive
+```
+
+To make a plain `git pull` update the submodules too, run once:
+
+```bash
+git config submodule.recurse true
+```
+
+The submodules end up in a "detached HEAD" state, on the exact commit that
+`ulixpy` records. This is expected: `ulixpy` pins each submodule to a specific
+commit, not to the tip of a branch.
+
+### Moving a submodule to the latest commit (maintainers)
+
+To update `ulixarm_cpp` to the latest commit on its `main` branch and record
+it in `ulixpy`:
+
+```bash
+git submodule update --remote --merge cpp/ulixarm_cpp
+git add cpp/ulixarm_cpp
+git commit -m "Bump ulixarm_cpp"
+git push
+```
+
+Users only get the new version after the commit is pushed. The same applies to
+`ulixarm_description` inside `ulixarm_cpp`: bump and push it in the
+`ulixarm_cpp` repository first, then bump `ulixarm_cpp` here.
