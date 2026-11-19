@@ -44,4 +44,8 @@ set_target_properties(_core PROPERTIES
 )
 
 install(TARGETS _core DESTINATION ulixpy)
-install(FILES cpp/ulixarm_cpp/ulixarm_description/src/ulixarm_description/urdf/robot.urdf DESTINATION ulixpy)
+install(FILES
+    cpp/ulixarm_cpp/ulixarm_description/src/ulixarm_description/urdf/arm.urdf
+    cpp/ulixarm_cpp/ulixarm_description/src/ulixarm_description/urdf/arm_gripper.urdf
+    cpp/ulixarm_cpp/ulixarm_description/src/ulixarm_description/urdf/arm_gripper_camera.urdf
+    DESTINATION ulixpy/urdf)

@@ -133,29 +133,43 @@ PYBIND11_MODULE(_core, m)
      py::class_<PyUlixArm>(m, "UlixArm")
 
      // Constructor
-     .def(py::init([](bool gripper, const std::string& urdf_path) {
+     .def(py::init([](bool gripper, bool camera, const std::string& urdf_path) {
                std::string path = urdf_path;
                // An empty path lets the library check $ULIXARM_DESCRIPTION_PATH.
-               // Without it, fall back to the robot.urdf installed next to this module.
+               // Without it, fall back to the URDF installed next to this module,
+               // picked from the mounted hardware the same way the library does.
+               // An invalid combination (camera without gripper) is rejected by
+               // the library before the URDF is loaded.
                if (path.empty() && std::getenv("ULIXARM_DESCRIPTION_PATH") == nullptr) {
+                    const char* urdf_file = (gripper && camera) ? "arm_gripper_camera.urdf"
+                                          : gripper           ? "arm_gripper.urdf"
+                                                              : "arm.urdf";
                     py::object urdf = py::module_::import("importlib.resources")
-                         .attr("files")("ulixpy").attr("joinpath")("robot.urdf");
+                         .attr("files")("ulixpy").attr("joinpath")("urdf").attr("joinpath")(urdf_file);
                     path = py::str(urdf);
                }
-               return new PyUlixArm(gripper, path);
+               return new PyUlixArm(gripper, camera, path);
           }),
           py::arg("gripper") = true,
+          py::arg("camera") = false,
           py::arg("urdf_path") = "",
           "Creates the arm object and sets up everything it needs to run.\n\n"
           "Loads the kinematic/dynamic model used for gravity compensation "
           "and prepares the motor lists for the manipulator joints and, "
           "if present, the gripper. It does not communicate with the "
           "hardware yet; call connect() for that.\n\n"
+          "The URDF file is picked from the mounted hardware: arm.urdf "
+          "(no gripper), arm_gripper.urdf (gripper) or "
+          "arm_gripper_camera.urdf (gripper and camera).\n\n"
           "Args:\n"
           "    gripper: True if a gripper is mounted on the arm, False otherwise.\n"
+          "    camera: True if a camera is mounted on the gripper, False otherwise.\n"
           "    urdf_path: Path to the robot URDF. Leave empty to use "
-          "$ULIXARM_DESCRIPTION_PATH/urdf/robot.urdf if that environment "
-          "variable is set, or the robot.urdf shipped with ulixpy otherwise.")
+          "$ULIXARM_DESCRIPTION_PATH/urdf/<file> if that environment "
+          "variable is set, or the URDF shipped with ulixpy otherwise.\n\n"
+          "Raises:\n"
+          "    UlixArmError: if camera is True and gripper is False (the "
+          "camera is mounted on the gripper), or if the URDF cannot be loaded.")
 
      // Connection and motor control
      .def("connect", guarded(&UlixArm::connect),
