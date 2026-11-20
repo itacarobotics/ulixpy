@@ -12,7 +12,7 @@ REPO_URL="https://github.com/itacarobotics/ulixpy.git"
 INSTALL_ROOT="/opt/itacarobotics"
 REPO_DIR="${INSTALL_ROOT}/ulixpy"
 ENV_NAME="ulixenv"
-PYTHON_VERSION="3.10"
+PYTHON_VERSION="3.12"
 MINIFORGE_DIR="${HOME}/miniforge3"
 MINIFORGE_URL="https://github.com/conda-forge/miniforge/releases/latest/download"
 
